@@ -3,91 +3,199 @@ import { api } from './api/config'
 import './App.css'
 
 function App() {
+  const [activeTab, setActiveTab] = useState('home')
   const [backendStatus, setBackendStatus] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatHistory, setChatHistory] = useState([])
 
-  const checkBackendHealth = async () => {
+  const checkBackend = async () => {
     setLoading(true)
-    setError(null)
     try {
       const result = await api.healthCheck()
       setBackendStatus(result)
     } catch (err) {
-      setError('Không thể kết nối Backend! Hãy chắc chắn server đang chạy.')
-      setBackendStatus(null)
+      setBackendStatus({ status: 'ERROR', message: 'Không thể kết nối' })
     }
     setLoading(false)
   }
 
+  const sendChat = () => {
+    if (!chatMessage.trim()) return
+    setChatHistory([...chatHistory, { role: 'user', content: chatMessage }])
+    // TODO: Gọi API chat AI
+    setChatHistory(prev => [...prev, { role: 'ai', content: 'Tính năng AI Chat đang được phát triển! 🚧' }])
+    setChatMessage('')
+  }
+
   return (
     <div className="app">
-      <header className="header">
-        <h1>🤖 AI Helper</h1>
-        <p className="subtitle">Personal App - Frontend + Backend Demo</p>
-      </header>
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="logo">
+          <span className="logo-icon">🤖</span>
+          <span className="logo-text">AI Helper</span>
+        </div>
 
-      <main className="main">
-        <section className="card">
-          <h2>🔌 Kiểm tra kết nối Backend</h2>
-          <p>Nhấn nút bên dưới để test xem Frontend có gọi được Backend không</p>
-
+        <nav className="nav">
           <button
-            onClick={checkBackendHealth}
-            disabled={loading}
-            className="btn-primary"
+            className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
+            onClick={() => setActiveTab('home')}
           >
-            {loading ? '⏳ Đang kiểm tra...' : '🚀 Test Connection'}
+            <span className="nav-icon">🏠</span>
+            <span>Trang chủ</span>
           </button>
+          <button
+            className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            <span className="nav-icon">💬</span>
+            <span>AI Chat</span>
+          </button>
+          <button
+            className={`nav-item ${activeTab === 'music' ? 'active' : ''}`}
+            onClick={() => setActiveTab('music')}
+          >
+            <span className="nav-icon">🎵</span>
+            <span>Nhận diện nhạc</span>
+          </button>
+          <button
+            className={`nav-item ${activeTab === 'translate' ? 'active' : ''}`}
+            onClick={() => setActiveTab('translate')}
+          >
+            <span className="nav-icon">🌐</span>
+            <span>Dịch văn bản</span>
+          </button>
+        </nav>
 
-          {error && (
-            <div className="status error">
-              ❌ {error}
+        <div className="sidebar-footer">
+          <button className="status-btn" onClick={checkBackend} disabled={loading}>
+            <span className={`status-dot ${backendStatus?.status === 'UP' ? 'online' : ''}`}></span>
+            <span>{loading ? 'Đang kiểm tra...' : 'Backend Status'}</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main-content">
+        {activeTab === 'home' && (
+          <div className="page home-page">
+            <div className="hero">
+              <h1>Chào mừng đến với <span className="gradient-text">AI Helper</span></h1>
+              <p>Trợ lý AI cá nhân đa năng - Chat, Nhận diện nhạc, Dịch thuật</p>
             </div>
-          )}
 
-          {backendStatus && (
-            <div className="status success">
-              <h3>✅ Kết nối thành công!</h3>
-              <pre>{JSON.stringify(backendStatus, null, 2)}</pre>
-            </div>
-          )}
-        </section>
+            <div className="features-grid">
+              <div className="feature-card" onClick={() => setActiveTab('chat')}>
+                <div className="feature-icon">💬</div>
+                <h3>AI Chat</h3>
+                <p>Trò chuyện với AI thông minh, giải đáp mọi thắc mắc</p>
+                <span className="feature-badge">OpenAI</span>
+              </div>
 
-        <section className="card info">
-          <h2>📋 Hướng dẫn chạy</h2>
-          <div className="instructions">
-            <div className="step">
-              <span className="step-number">1</span>
-              <div>
-                <strong>Chạy Backend (Terminal 1):</strong>
-                <code>cd backend && mvn spring-boot:run</code>
+              <div className="feature-card" onClick={() => setActiveTab('music')}>
+                <div className="feature-icon">🎵</div>
+                <h3>Nhận diện nhạc</h3>
+                <p>Tìm tên bài hát từ giai điệu bất kỳ</p>
+                <span className="feature-badge">Shazam</span>
+              </div>
+
+              <div className="feature-card" onClick={() => setActiveTab('translate')}>
+                <div className="feature-icon">🌐</div>
+                <h3>Dịch văn bản</h3>
+                <p>Dịch đa ngôn ngữ nhanh chóng và chính xác</p>
+                <span className="feature-badge">AI Translate</span>
               </div>
             </div>
-            <div className="step">
-              <span className="step-number">2</span>
-              <div>
-                <strong>Chạy Frontend (Terminal 2):</strong>
-                <code>cd frontend && npm run dev</code>
+
+            {backendStatus && (
+              <div className={`status-banner ${backendStatus.status === 'UP' ? 'success' : 'error'}`}>
+                {backendStatus.status === 'UP' ? '✅' : '❌'} {backendStatus.message}
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'chat' && (
+          <div className="page chat-page">
+            <div className="page-header">
+              <h2>💬 AI Chat</h2>
+              <p>Hỏi đáp với trí tuệ nhân tạo</p>
             </div>
-            <div className="step">
-              <span className="step-number">3</span>
-              <div>
-                <strong>Test:</strong>
-                <span>Nhấn nút "Test Connection" ở trên</span>
+
+            <div className="chat-container">
+              <div className="chat-messages">
+                {chatHistory.length === 0 && (
+                  <div className="chat-empty">
+                    <span className="empty-icon">🤖</span>
+                    <p>Bắt đầu cuộc trò chuyện với AI!</p>
+                  </div>
+                )}
+                {chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`chat-bubble ${msg.role}`}>
+                    {msg.content}
+                  </div>
+                ))}
+              </div>
+
+              <div className="chat-input-area">
+                <input
+                  type="text"
+                  placeholder="Nhập tin nhắn..."
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendChat()}
+                />
+                <button onClick={sendChat}>Gửi</button>
               </div>
             </div>
           </div>
-        </section>
-      </main>
+        )}
 
-      <footer className="footer">
-        <p>🏠 Sảnh: Vercel (React) | 🍳 Bếp: Render (Java Spring Boot)</p>
-      </footer>
+        {activeTab === 'music' && (
+          <div className="page music-page">
+            <div className="page-header">
+              <h2>🎵 Nhận diện nhạc</h2>
+              <p>Tìm tên bài hát từ giai điệu</p>
+            </div>
+
+            <div className="music-container">
+              <div className="music-recorder">
+                <div className="recorder-icon">🎤</div>
+                <p>Nhấn để bắt đầu thu âm</p>
+                <button className="record-btn">
+                  <span>Bắt đầu ghi</span>
+                </button>
+              </div>
+              <p className="coming-soon">🚧 Tính năng đang phát triển...</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'translate' && (
+          <div className="page translate-page">
+            <div className="page-header">
+              <h2>🌐 Dịch văn bản</h2>
+              <p>Dịch nhanh giữa các ngôn ngữ</p>
+            </div>
+
+            <div className="translate-container">
+              <div className="translate-box">
+                <label>Văn bản gốc</label>
+                <textarea placeholder="Nhập văn bản cần dịch..."></textarea>
+              </div>
+              <div className="translate-arrow">→</div>
+              <div className="translate-box">
+                <label>Bản dịch</label>
+                <textarea placeholder="Kết quả dịch sẽ hiện ở đây..." readOnly></textarea>
+              </div>
+              <p className="coming-soon">🚧 Tính năng đang phát triển...</p>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   )
 }
 
 export default App
-
