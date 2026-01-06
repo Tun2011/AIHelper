@@ -18,8 +18,9 @@ public class CorsConfig {
         // Cho phép Frontend gọi API
         config.setAllowedOriginPatterns(Arrays.asList(
             "http://localhost:*",           // Local development
-            "https://*.vercel.app",         // Vercel deployments
-            "https://*.netlify.app"         // Netlify (backup)
+            "https://*.vercel.app",         // All Vercel subdomains
+            "https://aihelper-six.vercel.app", // Specific domain
+            "*"                             // Allow all for testing (Temporary)
         ));
         
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
