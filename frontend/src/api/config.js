@@ -2,9 +2,8 @@
 // Thay đổi BACKEND_URL khi deploy lên Render
 
 const config = {
-  // Development: chạy local
-  // Production: thay bằng URL từ Render (ví dụ: https://your-app.onrender.com)
-  BACKEND_URL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080',
+  // Thay thẳng link Render vào đây (Lưu ý: KHÔNG có dấu / ở cuối cùng)
+  BACKEND_URL: 'https://aihelper-gyb2.onrender.com',
 };
 
 // API Helper functions
