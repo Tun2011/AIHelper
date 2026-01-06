@@ -15,9 +15,8 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Expose port 8080
-EXPOSE 8080
+# Expose default Render port
+EXPOSE 10000
 
-# Simple run command
 ENTRYPOINT ["java", "-jar", "app.jar"]
 
