@@ -15,10 +15,10 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Render uses PORT environment variable
-ENV PORT=8080
+# Render supplies PORT env var, but we set a default just in case
+ENV PORT=10000
 EXPOSE $PORT
 
-# Use shell form to allow environment variable expansion
-CMD java -jar app.jar --server.port=$PORT
+# Use shell form explicitly to ensure variable expansion works
+CMD ["sh", "-c", "java -jar app.jar --server.port=${PORT}"]
 
