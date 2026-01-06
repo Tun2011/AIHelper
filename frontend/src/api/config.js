@@ -31,6 +31,18 @@ export const api = {
     const response = await fetch(`${config.BACKEND_URL}${endpoint}`);
     return response.json();
   },
+
+  // Music Recognition API
+  async recognizeMusic(audioBase64) {
+    const response = await fetch(`${config.BACKEND_URL}/api/music/recognize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ audioBase64 }),
+    });
+    return response.json();
+  },
 };
 
 export default config;
