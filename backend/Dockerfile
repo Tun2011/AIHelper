@@ -15,5 +15,10 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Render uses PORT environment variable
+ENV PORT=8080
+EXPOSE $PORT
+
+# Use shell form to allow environment variable expansion
+CMD java -jar app.jar --server.port=$PORT
+
