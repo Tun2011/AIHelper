@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from '../../api/config'
 
 const LANGUAGES = [
-    { code: 'vi', name: '🇻🇳 Tiếng Việt' },
-    { code: 'en', name: '🇬🇧 English' },
-    { code: 'zh', name: '🇨🇳 中文' },
-    { code: 'ja', name: '🇯🇵 日本語' },
-    { code: 'ko', name: '🇰🇷 한국어' },
-    { code: 'fr', name: '🇫🇷 Français' },
-    { code: 'de', name: '🇩🇪 Deutsch' },
-    { code: 'es', name: '🇪🇸 Español' },
-    { code: 'ru', name: '🇷🇺 Русский' },
-    { code: 'th', name: '🇹🇭 ไทย' },
+    { code: 'vi', name: '[VI] Tiếng Việt' },
+    { code: 'en', name: '[EN] English' },
+    { code: 'zh', name: '[ZH] 中文' },
+    { code: 'ja', name: '[JA] 日本語' },
+    { code: 'ko', name: '[KO] 한국어' },
+    { code: 'fr', name: '[FR] Français' },
+    { code: 'de', name: '[DE] Deutsch' },
+    { code: 'es', name: '[ES] Español' },
+    { code: 'ru', name: '[RU] Русский' },
+    { code: 'th', name: '[TH] ไทย' },
 ]
 
 // Debounce hook

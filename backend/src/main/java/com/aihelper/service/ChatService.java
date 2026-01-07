@@ -7,20 +7,18 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import jakarta.annotation.PostConstruct;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
-public class TranslationService {
+public class ChatService {
 
     private final WebClient webClient;
     private final String apiKey;
-
-    // Cache available model - auto-discovered
     private final AtomicReference<String> cachedModel = new AtomicReference<>(null);
 
-    // Preferred models in order of priority (newest first)
     private static final String[] PREFERRED_MODELS = {
             "gemini-2.5-flash",
             "gemini-2.5-pro",
@@ -31,7 +29,18 @@ public class TranslationService {
             "gemini-pro"
     };
 
-    public TranslationService(@Value("${google.ai.api.key:}") String apiKeyConfig) {
+    private static final String SYSTEM_PROMPT = """
+            Bạn là AI Helper - trợ lý AI thông minh, thân thiện và hữu ích.
+
+            Hướng dẫn:
+            - Trả lời bằng tiếng Việt trừ khi người dùng hỏi bằng ngôn ngữ khác
+            - Sử dụng emoji phù hợp để tạo cảm giác thân thiện
+            - Trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin
+            - Nếu không biết, hãy thừa nhận thay vì bịa đặt
+            - Có thể viết code, giải thích concepts, giúp debug, trả lời câu hỏi
+            """;
+
+    public ChatService(@Value("${google.ai.api.key:}") String apiKeyConfig) {
         if (apiKeyConfig == null || apiKeyConfig.isEmpty()) {
             this.apiKey = "AIzaSyAUB6ZTTqqdNyxFM5-rA17WI4l4Tceg77M";
         } else {
@@ -45,15 +54,12 @@ public class TranslationService {
 
     @PostConstruct
     public void init() {
-        // Auto-discover best available model on startup
         discoverBestModel();
     }
 
     @SuppressWarnings("unchecked")
     private void discoverBestModel() {
         try {
-            System.out.println("🔍 Discovering available Gemini models...");
-
             Map<String, Object> response = webClient.get()
                     .uri("/models?key=" + apiKey)
                     .retrieve()
@@ -63,29 +69,21 @@ public class TranslationService {
             if (response != null && response.containsKey("models")) {
                 List<Map<String, Object>> models = (List<Map<String, Object>>) response.get("models");
 
-                // Find best available model from preferred list
                 for (String preferred : PREFERRED_MODELS) {
                     for (Map<String, Object> model : models) {
                         String modelName = (String) model.get("name");
                         if (modelName != null && modelName.contains(preferred)) {
-                            // Extract just the model ID (e.g., "models/gemini-2.0-flash" ->
-                            // "gemini-2.0-flash")
                             String modelId = modelName.replace("models/", "");
                             cachedModel.set(modelId);
-                            System.out.println("✅ Selected model: " + modelId);
+                            System.out.println("✅ Chat model selected: " + modelId);
                             return;
                         }
                     }
                 }
             }
-
-            // Fallback if no preferred model found
             cachedModel.set("gemini-pro");
-            System.out.println("⚠️ Using fallback model: gemini-pro");
-
         } catch (Exception e) {
             cachedModel.set("gemini-pro");
-            System.out.println("⚠️ Model discovery failed, using fallback: gemini-pro - " + e.getMessage());
         }
     }
 
@@ -99,28 +97,53 @@ public class TranslationService {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> translate(String text, String sourceLang, String targetLang) {
+    public Map<String, Object> chat(String message, List<Map<String, String>> history, String image, String mimeType) {
         try {
-            if (text == null || text.trim().isEmpty()) {
-                return Map.of(
-                        "success", false,
-                        "error", "Văn bản không được để trống");
+            if (message == null || message.trim().isEmpty()) {
+                return Map.of("success", false, "error", "Tin nhắn không được để trống");
             }
 
-            String sourceLanguage = getLanguageName(sourceLang);
-            String targetLanguage = getLanguageName(targetLang);
+            // Build conversation contents
+            List<Map<String, Object>> contents = new ArrayList<>();
 
-            String prompt = String.format(
-                    "Translate the following text from %s to %s. Only respond with the translation, nothing else:\n\n%s",
-                    sourceLanguage, targetLanguage, text);
+            // Add system instruction as first user message
+            contents.add(Map.of(
+                    "role", "user",
+                    "parts", List.of(Map.of("text", SYSTEM_PROMPT + "\n\nHãy bắt đầu cuộc trò chuyện."))));
+            contents.add(Map.of(
+                    "role", "model",
+                    "parts", List.of(Map.of("text",
+                            "Xin chào! 👋 Tôi là AI Helper, sẵn sàng giúp đỡ bạn. Hãy hỏi tôi bất cứ điều gì!"))));
+
+            // Add conversation history
+            if (history != null) {
+                for (Map<String, String> msg : history) {
+                    String role = "user".equals(msg.get("role")) ? "user" : "model";
+                    contents.add(Map.of(
+                            "role", role,
+                            "parts", List.of(Map.of("text", msg.get("content")))));
+                }
+            }
+
+            // Add current message with optional image
+            List<Map<String, Object>> currentParts = new ArrayList<>();
+            currentParts.add(Map.of("text", message));
+
+            if (image != null && !image.isEmpty() && mimeType != null) {
+                currentParts.add(Map.of("inline_data", Map.of(
+                        "mime_type", mimeType,
+                        "data", image)));
+            }
+
+            contents.add(Map.of(
+                    "role", "user",
+                    "parts", currentParts));
 
             Map<String, Object> requestBody = Map.of(
-                    "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)))),
+                    "contents", contents,
                     "generationConfig", Map.of(
-                            "temperature", 0.3,
-                            "maxOutputTokens", 1024));
+                            "temperature", 0.7,
+                            "maxOutputTokens", 2048));
 
             String modelToUse = getModel();
 
@@ -133,65 +156,37 @@ public class TranslationService {
                     .block();
 
             if (response == null) {
-                return Map.of(
-                        "success", false,
-                        "error", "Không nhận được phản hồi từ Google AI");
+                return Map.of("success", false, "error", "Không nhận được phản hồi");
             }
 
-            // Parse Gemini response
+            // Parse response
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
             if (candidates != null && !candidates.isEmpty()) {
                 Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
                 if (content != null) {
                     List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
                     if (parts != null && !parts.isEmpty()) {
-                        String translatedText = (String) parts.get(0).get("text");
+                        String reply = (String) parts.get(0).get("text");
                         return Map.of(
                                 "success", true,
-                                "translatedText", translatedText != null ? translatedText.trim() : "",
+                                "reply", reply != null ? reply.trim() : "",
                                 "model", modelToUse);
                     }
                 }
             }
 
-            return Map.of(
-                    "success", false,
-                    "error", "Không thể dịch văn bản");
+            return Map.of("success", false, "error", "Không thể xử lý phản hồi");
 
         } catch (WebClientResponseException e) {
-            // If model unavailable (404, 503, 429), try to re-discover with next model
             int status = e.getStatusCode().value();
             if (status == 404 || status == 503 || status == 429) {
                 cachedModel.set(null);
                 discoverBestModel();
-                // Return friendlier message
-                return Map.of(
-                        "success", false,
-                        "error", "Model đang bận, vui lòng thử lại sau giây lát.");
+                return Map.of("success", false, "error", "Model đang bận, vui lòng thử lại.");
             }
-            return Map.of(
-                    "success", false,
-                    "error", "Lỗi API: " + e.getStatusCode() + " - " + e.getMessage());
+            return Map.of("success", false, "error", "Lỗi API: " + e.getMessage());
         } catch (Exception e) {
-            return Map.of(
-                    "success", false,
-                    "error", "Lỗi dịch: " + e.getMessage());
+            return Map.of("success", false, "error", "Lỗi: " + e.getMessage());
         }
-    }
-
-    private String getLanguageName(String code) {
-        return switch (code) {
-            case "vi" -> "Vietnamese";
-            case "en" -> "English";
-            case "zh" -> "Chinese";
-            case "ja" -> "Japanese";
-            case "ko" -> "Korean";
-            case "fr" -> "French";
-            case "de" -> "German";
-            case "es" -> "Spanish";
-            case "ru" -> "Russian";
-            case "th" -> "Thai";
-            default -> code;
-        };
     }
 }

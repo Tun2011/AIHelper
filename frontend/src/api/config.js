@@ -57,6 +57,18 @@ export const api = {
     });
     return response.json();
   },
+
+  // Chat API
+  async chat(message, history = [], image = null, mimeType = null) {
+    const response = await fetch(`${config.BACKEND_URL}/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message, history, image, mimeType }),
+    });
+    return response.json();
+  },
 };
 
 export default config;
