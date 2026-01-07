@@ -3,7 +3,9 @@
 
 const config = {
   // Thay thẳng link Render vào đây (Lưu ý: KHÔNG có dấu / ở cuối cùng)
-  BACKEND_URL: 'https://aihelper-gyb2.onrender.com',
+  // Production: 'https://aihelper-gyb2.onrender.com'
+  // Local: 'http://localhost:10000'
+  BACKEND_URL: 'http://localhost:10000',
 };
 
 // API Helper functions
@@ -40,6 +42,18 @@ export const api = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ audioBase64 }),
+    });
+    return response.json();
+  },
+
+  // Translation API
+  async translate(text, sourceLang, targetLang) {
+    const response = await fetch(`${config.BACKEND_URL}/api/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text, sourceLang, targetLang }),
     });
     return response.json();
   },

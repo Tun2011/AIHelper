@@ -10,6 +10,7 @@ function MusicRecognition() {
     const mediaRecorderRef = useRef(null)
     const audioChunksRef = useRef([])
     const timerRef = useRef(null)
+    const streamRef = useRef(null) // Keep track of stream to stop tracks later
 
     const startRecording = async () => {
         try {
@@ -17,8 +18,26 @@ function MusicRecognition() {
             setSongResult(null)
             setRecordingTime(0)
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+            // Request Screen Share with Audio
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true
+            })
+
+            // Check if user shared audio
+            if (stream.getAudioTracks().length === 0) {
+                // If no audio, stop everything and alert user
+                stream.getTracks().forEach(track => track.stop())
+                setMusicError('Bạn chưa chia sẻ âm thanh! Vui lòng tích vào ô "Also share audio" (Chia sẻ âm thanh) khi chọn tab/màn hình.')
+                return
+            }
+
+            streamRef.current = stream
+
+            // Create a dedicated audio stream for recorder (we don't need video in the blob)
+            const audioStream = new MediaStream(stream.getAudioTracks())
+            const mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' })
+
             mediaRecorderRef.current = mediaRecorder
             audioChunksRef.current = []
 
@@ -29,7 +48,12 @@ function MusicRecognition() {
             }
 
             mediaRecorder.onstop = async () => {
-                stream.getTracks().forEach(track => track.stop())
+                // Stop all tracks (video and audio) when recording stops
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(track => track.stop())
+                    streamRef.current = null
+                }
+
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
                 await processAudio(audioBlob)
             }
@@ -49,8 +73,16 @@ function MusicRecognition() {
                 }
             }, 8000)
 
+            // Listen for user stopping sharing via browser UI
+            stream.getVideoTracks()[0].onended = () => {
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                    stopRecording()
+                }
+            }
+
         } catch (err) {
-            setMusicError('Không thể truy cập microphone. Vui lòng cho phép quyền truy cập.')
+            // User cancelled selection or browser denied
+            setMusicError('Không thể ghi âm. Vui lòng chọn tab và chia sẻ âm thanh.')
         }
     }
 
@@ -98,10 +130,10 @@ function MusicRecognition() {
                 {/* Recording Section */}
                 {!isProcessing && !songResult && !musicError && (
                     <div className={`music-recorder ${isRecording ? 'recording' : ''}`}>
-                        <div className="recorder-icon">{isRecording ? '🎙️' : '🎤'}</div>
+                        <div className="recorder-icon">{isRecording ? '🔊' : '🖥️'}</div>
                         {isRecording ? (
                             <>
-                                <p className="recording-text">Đang lắng nghe... {recordingTime}s</p>
+                                <p className="recording-text">Đang lắng nghe System Audio... {recordingTime}s</p>
                                 <div className="sound-wave">
                                     <span></span><span></span><span></span><span></span><span></span>
                                 </div>
@@ -111,9 +143,9 @@ function MusicRecognition() {
                             </>
                         ) : (
                             <>
-                                <p>Phát nhạc và nhấn nút để nhận diện</p>
+                                <p className="instruction-text">Chọn tab/màn hình phát nhạc và <b>tích vào ô "Chia sẻ âm thanh"</b></p>
                                 <button className="record-btn" onClick={startRecording}>
-                                    <span>🎤 Bắt đầu ghi</span>
+                                    <span>🎥 Bắt đầu ghi (System Audio)</span>
                                 </button>
                             </>
                         )}

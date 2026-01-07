@@ -88,48 +88,92 @@ function ColorPicker() {
         }
     }
 
+    // Helper function to get correct canvas coordinates accounting for CSS scaling
+    const getCanvasCoordinates = (e) => {
+        const canvas = canvasRef.current
+        if (!canvas) return null
+        if (canvas.width === 0 || canvas.height === 0) return null
+
+        const rect = canvas.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return null
+
+        // Calculate the actual displayed size of the canvas content
+        // This accounts for CSS max-height and object-fit
+        const canvasAspect = canvas.width / canvas.height
+        const rectAspect = rect.width / rect.height
+
+        let displayWidth, displayHeight, offsetX, offsetY
+
+        if (canvasAspect > rectAspect) {
+            // Canvas is wider than container - width fills, height has gaps
+            displayWidth = rect.width
+            displayHeight = rect.width / canvasAspect
+            offsetX = 0
+            offsetY = (rect.height - displayHeight) / 2
+        } else {
+            // Canvas is taller than container - height fills, width has gaps
+            displayHeight = rect.height
+            displayWidth = rect.height * canvasAspect
+            offsetX = (rect.width - displayWidth) / 2
+            offsetY = 0
+        }
+
+        // Get mouse position relative to the actual displayed image area
+        const mouseX = e.clientX - rect.left - offsetX
+        const mouseY = e.clientY - rect.top - offsetY
+
+        // Check if mouse is within the actual displayed image area
+        if (mouseX < 0 || mouseX >= displayWidth || mouseY < 0 || mouseY >= displayHeight) {
+            return null
+        }
+
+        // Scale to canvas coordinates
+        const x = Math.floor((mouseX / displayWidth) * canvas.width)
+        const y = Math.floor((mouseY / displayHeight) * canvas.height)
+
+        // Clamp to valid range
+        const clampedX = Math.max(0, Math.min(canvas.width - 1, x))
+        const clampedY = Math.max(0, Math.min(canvas.height - 1, y))
+
+        return {
+            x: clampedX,
+            y: clampedY,
+            displayX: e.clientX - rect.left,
+            displayY: e.clientY - rect.top
+        }
+    }
+
     const pickColorFromCanvas = (e) => {
         const canvas = canvasRef.current
         if (!canvas) return
-        if (canvas.width === 0 || canvas.height === 0) return
 
-        const rect = canvas.getBoundingClientRect()
-        if (rect.width === 0 || rect.height === 0) return
-
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
-        const x = Math.floor((e.clientX - rect.left) * scaleX)
-        const y = Math.floor((e.clientY - rect.top) * scaleY)
-
-        if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) return
+        const coords = getCanvasCoordinates(e)
+        if (!coords) return
 
         try {
             const ctx = canvas.getContext('2d')
-            const pixel = ctx.getImageData(x, y, 1, 1).data
+            const pixel = ctx.getImageData(coords.x, coords.y, 1, 1).data
             const [r, g, b] = pixel
 
             const hex = rgbToHex(r, g, b)
             const hsl = rgbToHsl(r, g, b)
 
             setSelectedColor({ r, g, b, hex, hsl })
-            setCursorPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+            setCursorPosition({ x: coords.displayX, y: coords.displayY })
         } catch (err) {
             console.log('Error picking color:', err)
         }
     }
 
-    const getMagnifierPixels = (clientX, clientY) => {
+    const getMagnifierPixels = (e) => {
         const canvas = canvasRef.current
         if (!canvas) return []
-        if (canvas.width === 0 || canvas.height === 0) return []
 
-        const rect = canvas.getBoundingClientRect()
-        if (rect.width === 0 || rect.height === 0) return []
+        const coords = getCanvasCoordinates(e)
+        if (!coords) return []
 
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
-        const centerX = Math.floor((clientX - rect.left) * scaleX)
-        const centerY = Math.floor((clientY - rect.top) * scaleY)
+        const centerX = coords.x
+        const centerY = coords.y
 
         try {
             const ctx = canvas.getContext('2d')
@@ -160,32 +204,24 @@ function ColorPicker() {
     const handleCanvasMouseMove = (e) => {
         const canvas = canvasRef.current
         if (!canvas) return
-        if (canvas.width === 0 || canvas.height === 0) return
 
-        const rect = canvas.getBoundingClientRect()
-        if (rect.width === 0 || rect.height === 0) return
-
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
-        const x = Math.floor((e.clientX - rect.left) * scaleX)
-        const y = Math.floor((e.clientY - rect.top) * scaleY)
-
-        if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) return
+        const coords = getCanvasCoordinates(e)
+        if (!coords) return
 
         try {
             const ctx = canvas.getContext('2d')
-            const pixel = ctx.getImageData(x, y, 1, 1).data
+            const pixel = ctx.getImageData(coords.x, coords.y, 1, 1).data
             const [r, g, b] = pixel
             const hex = rgbToHex(r, g, b)
             const hsl = rgbToHsl(r, g, b)
 
             setHoverColor({ r, g, b, hex, hsl })
             setCursorPosition({
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
+                x: coords.displayX,
+                y: coords.displayY
             })
             setShowMagnifier(true)
-            setMagnifierPixels(getMagnifierPixels(e.clientX, e.clientY))
+            setMagnifierPixels(getMagnifierPixels(e))
         } catch (err) {
             console.log('Canvas not ready:', err)
         }
@@ -274,12 +310,7 @@ function ColorPicker() {
                                         )}
                                     </div>
                                 )}
-                                <button
-                                    className="change-image-btn"
-                                    onClick={() => setColorImage(null)}
-                                >
-                                    🔄 Use different image
-                                </button>
+
                             </div>
                         )}
                     </div>
